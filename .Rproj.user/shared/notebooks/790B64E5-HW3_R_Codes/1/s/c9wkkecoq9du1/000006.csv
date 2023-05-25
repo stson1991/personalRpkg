@@ -1,0 +1,73 @@
+"0","library(reshape2)
+library(dplyr)
+"
+"2","
+다음의 패키지를 부착합니다: ‘dplyr’
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+"
+"0","library(tidyr)"
+"2","
+다음의 패키지를 부착합니다: ‘tidyr’
+
+"
+"2","The following object is masked from ‘package:reshape2’:
+
+    smiths
+
+"
+"0","library(ggplot2)"
+"0","library(corrplot)"
+"2","패키지 ‘corrplot’는 R 버전 4.2.3에서 작성되었습니다"
+"2","corrplot 0.92 loaded
+"
+"0","library(tab)"
+"2","패키지 ‘tab’는 R 버전 4.2.3에서 작성되었습니다"
+"2","필요한 패키지를 로딩중입니다: knitr
+"
+"0","library(lattice)"
+"0","library(nlme)"
+"2","
+다음의 패키지를 부착합니다: ‘nlme’
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    collapse
+
+"
+"0","library(geepack)"
+"2","패키지 ‘geepack’는 R 버전 4.2.3에서 작성되었습니다"
+"0","library(lme4)"
+"2","필요한 패키지를 로딩중입니다: Matrix
+"
+"2","
+다음의 패키지를 부착합니다: ‘Matrix’
+
+"
+"2","The following objects are masked from ‘package:tidyr’:
+
+    expand, pack, unpack
+
+"
+"2","
+다음의 패키지를 부착합니다: ‘lme4’
+
+"
+"2","The following object is masked from ‘package:nlme’:
+
+    lmList
+
+"
+"0","setwd(""C:/Spring2023/BIOST540/HW3"")"
+"0","cbPalette <- c(""#E69F00"", ""#56B4E9"", ""#009E73"", ""#F0E442"","
+"0","               ""#0072B2"", ""#D55E00"", ""#CC79A7"",""#999999"" )"

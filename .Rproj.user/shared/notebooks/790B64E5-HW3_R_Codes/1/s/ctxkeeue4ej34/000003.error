@@ -1,0 +1,1 @@
+{"frames":[{"func":"melt(aug, id = c(\"id\", \"Treatment_Group\"))","file":"","line_number":0,"end_line_number":0,"character_number":0,"end_character_number":0}],"message":"melt(aug, id = c(\"id\", \"Treatment_Group\"))에서 다음과 같은 에러가 발생했습니다:\n  객체 'aug'를 찾을 수 없습니다\n"}

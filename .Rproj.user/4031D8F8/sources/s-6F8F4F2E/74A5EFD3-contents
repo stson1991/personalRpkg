@@ -1,0 +1,303 @@
+---
+title: "Appendix to Homework 3 Solutions"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+First load libraries and set parameters for plotting.
+```{r eval=FALSE}
+library(reshape2)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(corrplot)
+library(tab)
+library(lattice)
+library(nlme)
+library(geepack)
+library(lme4)
+
+setwd("C:/Spring2023/BIOST540/HW3")
+cbPalette <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442",
+               "#0072B2", "#D55E00", "#CC79A7","#999999" )
+```
+
+
+## Part A
+The following code imports the data and also creates a long form data set.
+
+```{r eval=FALSE}
+aug <- read.csv("augmentation.csv")
+aug <- aug[, c("id", "Treatment_Group", "HD_t0", "HD_t1", "HD_t2",
+               "HD_t3", "HD_t4", "HD_t5", "HD_t6")]
+aug_long <- melt(aug, id=c("id","Treatment_Group"))
+aug_long$week <- as.numeric(gsub("HD_t","",aug_long$variable))
+```
+
+### Question 1
+Not applicable.
+
+### Question 2
+The following block of code defines the binary numeric variable "Treatment_Group", and fits the random intercept model.
+```{r eval=FALSE}
+aug_long <- aug_long %>% 
+               mutate(Treatment = case_when(Treatment_Group == "Augmentation" ~ 1,
+                                            Treatment_Group == "Control" ~ 0))
+lme_intercept <- lme(value~week*Treatment, data = na.omit(aug_long), method = "ML",
+                     random = reStruct( ~ 1 | id, pdClass="pdDiag", REML=FALSE),
+                     )
+broom.mixed::tidy(lme_intercept, conf.int=TRUE)
+```
+
+### Question 3
+The following block of code fits the random intercept and slope model.
+```{r eval=FALSE}
+lme_int_slope <- lme(value~week*Treatment, data = aug_long, method = "ML",
+                     random = reStruct(~ 1 + week | id, pdClass="pdSymm", REML=F),
+                     na.action = na.omit)
+broom.mixed::tidy(lme_int_slope, conf.int=TRUE)
+```
+
+### Question 4
+The following block of code fits the model with the additional fixed effects $week^2$ along with the random intercepts, slopes, and quadratic.
+```{r eval=FALSE}
+lme_int_slope_quadratic <- lme(value~week*Treatment + I(week^2)*Treatment, 
+                               data = aug_long, method = "ML", 
+                               random = reStruct( ~ 1 + week + I(week^2) | id,
+                               pdClass="pdSymm", REML=F), na.action = na.omit)
+broom.mixed::tidy(lme_int_slope_quadratic, conf.int=TRUE)
+```
+
+### Question 5
+The following code compares the three different model and produces Figure 1.
+```{r eval=FALSE}
+anova(lme_intercept, lme_int_slope, lme_int_slope_quadratic)
+df_lme_fit <- data.frame(lmm1 = lme_intercept$fitted[,"fixed"],
+                         lmm2 = lme_int_slope$fitted[,"fixed"],
+                         lmm3 = lme_int_slope_quadratic$fitted[,"fixed"])
+aug_long_lmm_fit <- aug_long %>% drop_na() %>% cbind(df_lme_fit)
+ggplot(data=aug_long_lmm_fit, aes(x=week, y=value)) +
+      facet_grid(. ~ Treatment_Group) +
+      geom_jitter(width = 0.1, height = 0.1,colour="grey50")+
+      xlab("Time (week)") + ylab("HDRS value") + theme_bw() +
+      geom_line(aes(x=week,y=lmm1,group="id"),colour='black', size = 2) +
+      geom_line(aes(x=week,y=lmm2,group="id"),colour='blue', size = 2) +
+      geom_line(aes(x=week,y=lmm3,group="id"),colour='red', size = 2) +
+      theme(plot.title = element_text(hjust =0.5, size = 20),
+      legend.title = element_text(size = 20),
+      axis.text = element_text(size = 20),
+      legend.text = element_text(size = 20, hjust = 0),
+      strip.text.x = element_text(size = 20),
+      axis.title = element_text(size = 20))
+```
+
+
+
+
+## Part B
+
+### Question 1
+The following block of code loads the \texttt{Six Cities} data, and performs exploratory data analysis.
+```{r eval=FALSE}
+six_city <- read.csv("sixcity.csv") %>% select(-X) %>%
+               mutate(actual_age = age+8, smok=as.factor(smok)) %>%
+               arrange(id, age)
+# relationship btw prevalence and age (Figure 1a)
+six_city %>% group_by(actual_age) %>% 
+   summarise(n_resp = sum(resp==1), prop_resp = n_resp/n(),
+             sd_prop = sqrt(prop_resp*(1-prop_resp)/n()), count = n())
+
+summary_stats <- six_city %>% group_by(actual_age, smok) %>% 
+                    summarise(n_resp = sum(resp==1), prop_resp = n_resp/n(),
+                    sd_prop = sqrt(prop_resp*(1-prop_resp)/n()), count = n())
+
+summary_stats %>%
+   ggplot(aes(x=actual_age,y=prop_resp,colour=smok, group=smok))+
+   geom_point()+ geom_line()+
+   geom_pointrange(aes(ymin=prop_resp-1*sd_prop,ymax=prop_resp+1*sd_prop))+
+   xlab("Age (years)") + ylab("Prevalence of respiratory disease") + 
+   theme_bw()+ theme(plot.title = element_text(hjust = 0.5,size=15),
+                     legend.position="bottom",
+                     legend.title = element_text(size=15),
+                     axis.text = element_text(size=15),
+                     legend.text = element_text(size=15,hjust = 0),
+                     strip.text.x = element_text(size=15),
+                     axis.title=element_text(size=15)) +
+   scale_colour_discrete(name = "Mother's smoking",
+                         labels = c("Yes", "No"))
+
+six_city_wide <- six_city %>% reshape(idvar = "id", timevar ="actual_age", 
+                                      direction = "wide")
+
+
+cor_mat_overall <- cor(six_city_wide %>% 
+                       select(tidyselect::starts_with("resp")), 
+                       use = "complete.obs")
+
+col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", 
+                          "#77AADD", "#4477AA"))
+
+corrplot(cor_mat_overall, method="color", col=col(200),
+         type="upper", order="original",
+         addCoef.col = "black", # Add coefficient of correlation
+         tl.col="black", tl.srt=45, #Text label color and rotation
+         number.cex = 1.5, diag=FALSE)
+
+```
+
+### Question 2
+The following code fits the marginal model with different correlation structures.
+```{r eval=FALSE}
+fit1 <- geeglm(resp ~ age*smok, id=id, data=six_city,
+               family=binomial(link="logit"), corstr="independence", 
+               std.err="san.se")
+summary(fit1)
+fit2 <- geeglm(resp ~ age*smok, id=id, data=six_city,
+               family=binomial(link="logit"), corstr="exchangeable", 
+               std.err="san.se")
+summary(fit2)
+fit3 <- geeglm(resp ~ age*smok, id=id, data=six_city,
+               family=binomial(link="logit"), corstr="ar1", 
+               std.err="san.se")
+summary(fit3)
+fit4 <- geeglm(resp ~ age*smok, id=id, data=six_city,
+               family=binomial(link="logit"), corstr="unstructured", 
+               std.err="san.se")
+summary(fit4)
+
+
+fit1_or <- summary(fit1)$coefficients[3,]
+fit2_or <- summary(fit2)$coefficients[3,]
+fit3_or <- summary(fit3)$coefficients[3,]
+fit4_or <- summary(fit4)$coefficients[3,]
+
+fit1_or_inter <- summary(fit1)$coefficients[4,]
+fit2_or_inter <- summary(fit2)$coefficients[4,]
+fit3_or_inter <- summary(fit3)$coefficients[4,]
+fit4_or_inter <- summary(fit4)$coefficients[4,]
+
+fit1_log_or <- fit1_or$Estimate
+fit2_log_or <- fit2_or$Estimate
+fit3_log_or <- fit3_or$Estimate
+fit4_log_or <- fit4_or$Estimate
+
+fit1_log_or_inter <- fit1_or_inter$Estimate
+fit2_log_or_inter <- fit2_or_inter$Estimate
+fit3_log_or_inter <- fit3_or_inter$Estimate
+fit4_log_or_inter <- fit4_or_inter$Estimate
+
+fit1_or_95CI <- exp(fit1_log_or + qnorm(0.975) * fit1_or$Std.err * c(-1,1))
+fit2_or_95CI <- exp(fit2_log_or + qnorm(0.975) * fit2_or$Std.err * c(-1,1))
+fit3_or_95CI <- exp(fit3_log_or + qnorm(0.975) * fit3_or$Std.err * c(-1,1))
+fit4_or_95CI <- exp(fit4_log_or + qnorm(0.975) * fit4_or$Std.err * c(-1,1))
+
+fit1_or_inter_95CI <- exp(fit1_log_or_inter + 
+                          qnorm(0.975) * fit1_or_inter$Std.err * c(-1,1))
+fit2_or_inter_95CI <- exp(fit2_log_or_inter + 
+                          qnorm(0.975) * fit2_or_inter$Std.err * c(-1,1))
+fit3_or_inter_95CI <- exp(fit3_log_or_inter + 
+                          qnorm(0.975) * fit3_or_inter$Std.err * c(-1,1))
+fit4_or_inter_95CI <- exp(fit4_log_or_inter + 
+                          qnorm(0.975) * fit4_or_inter$Std.err * c(-1,1))
+
+modelfits <- rbind(c(exp(fit1_log_or), fit1_or_95CI),
+                   c(exp(fit2_log_or), fit2_or_95CI),
+                   c(exp(fit3_log_or), fit3_or_95CI),
+                   c(exp(fit4_log_or), fit4_or_95CI),
+                   c(exp(fit1_log_or_inter), fit1_or_inter_95CI),
+                   c(exp(fit2_log_or_inter), fit2_or_inter_95CI),
+                   c(exp(fit3_log_or_inter), fit3_or_inter_95CI),
+                   c(exp(fit4_log_or_inter), fit4_or_inter_95CI)
+                  )
+
+colnames(modelfits) <- c("Estimate","Lower 95% CI","Upper 95% CI")
+rownames(modelfits) <- c("Indep OR","Exch OR","AR1 OR","Unstr OR",
+                         "Indep OR Int","Exch OR Int",
+                         "AR1 OR Int","Unstr OR Int")
+
+```
+
+### Question 3
+The following code fits the random effects model.
+```{r eval=FALSE}  
+glmm.fit <- glmer(resp ~ age*smok + (1|id), data=six_city,
+                  family=binomial(link="logit"), nAGQ=20)
+summary(glmm.fit)
+broom.mixed::tidy(glmm.fit, conf.int=TRUE, exponentiate=TRUE)
+# same as
+exp(confint(glmm.fit,parm="beta_",method="Wald"))
+```
+
+### Question 4
+The following code fits the transition model specified in (6) of the worksheet.
+```{r eval=FALSE}  
+six_city_lag <- six_city %>% group_by(id) %>%
+                mutate(lag1 = lag(resp)) %>%
+                filter(!is.na(lag1))
+transit_fit_gee <- geeglm(resp ~ age*smok + lag1, data = six_city_lag, id = id,
+                          family=binomial(link="logit"), 
+                          corstr = "exchangeable", std.err="san.se")
+summary(transit_fit_gee)
+
+#smoke
+transition_smoke <- summary(transit_fit_gee)$coefficients[3,]
+smoke_log_or <- transition_smoke$Estimate
+smoke_or_95CI <- exp(smoke_log_or + 
+                     qnorm(0.975) * transition_smoke$Std.err * c(-1,1))
+
+
+#lag
+transition_lag1 <- summary(transit_fit_gee)$coefficients[4,]
+lag1_log_or <- transition_lag1$Estimate
+lag1_or_95CI <- exp(lag1_log_or + 
+                     qnorm(0.975) * transition_lag1$Std.err * c(-1,1))
+
+#interaction
+transition_interaction <- summary(transit_fit_gee)$coefficients[5,]
+inter_log_or <- transition_interaction$Estimate
+inter_or_95CI <- exp(inter_log_or + 
+                     qnorm(0.975) * transition_interaction$Std.err * c(-1,1))
+
+
+#Summary
+
+modelfits <- rbind(c(exp(smoke_log_or), smoke_or_95CI),
+                   c(exp(lag1_log_or), lag1_or_95CI),
+                   c(exp(inter_log_or), inter_or_95CI)
+                  )
+
+colnames(modelfits) <- c("Estimate","Lower 95% CI","Upper 95% CI")
+rownames(modelfits) <- c("Smoke OR","Lag1 OR","Interaction OR")
+                    
+```
+
+### Question 5
+
+Not applicable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

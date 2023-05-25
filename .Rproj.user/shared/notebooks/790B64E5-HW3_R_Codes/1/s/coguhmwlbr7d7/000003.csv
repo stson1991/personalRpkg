@@ -1,0 +1,27 @@
+"0","six_city <- read.csv(""sixcity.csv"") %>% select(-X) %>%
+               mutate(actual_age = age+8, smok=as.factor(smok)) %>%
+               arrange(id, age)
+# relationship btw prevalence and age (Figure 1a)
+six_city %>% group_by(actual_age) %>% 
+   summarise(n_resp = sum(resp==1), prop_resp = n_resp/n(),
+             sd_prop = sqrt(prop_resp*(1-prop_resp)/n()), count = n())
+"
+"0",""
+"0","summary_stats <- six_city %>% group_by(actual_age, smok) %>% "
+"0","                    summarise(n_resp = sum(resp==1), prop_resp = n_resp/n(),"
+"0","                    sd_prop = sqrt(prop_resp*(1-prop_resp)/n()), count = n())"
+"2","`summarise()` has grouped output by 'actual_age'. You can override using the `.groups` argument."
+"0","summary_stats %>%"
+"0","   ggplot(aes(x=actual_age,y=prop_resp,colour=smok, group=smok))+"
+"0","   geom_point()+ geom_line()+"
+"0","   geom_pointrange(aes(ymin=prop_resp-1*sd_prop,ymax=prop_resp+1*sd_prop))+"
+"0","   xlab(""Age (years)"") + ylab(""Prevalence of respiratory disease"") + "
+"0","   theme_bw()+ theme(plot.title = element_text(hjust = 0.5,size=15),"
+"0","                     legend.position=""bottom"","
+"0","                     legend.title = element_text(size=15),"
+"0","                     axis.text = element_text(size=15),"
+"0","                     legend.text = element_text(size=15,hjust = 0),"
+"0","                     strip.text.x = element_text(size=15),"
+"0","                     axis.title=element_text(size=15)) +"
+"0","   scale_colour_discrete(name = ""Mother's smoking"","
+"0","                         labels = c(""Yes"", ""No""))"

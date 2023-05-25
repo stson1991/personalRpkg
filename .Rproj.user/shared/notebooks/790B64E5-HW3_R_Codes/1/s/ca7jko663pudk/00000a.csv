@@ -1,0 +1,6 @@
+"0","lme_intercept <- lme(value~week*Treatment, data = na,omit(aug_long), method = ""ML"",
+                     random = reStruct( ~ 1 | id, pdClass=""pdDiag"", REML=FALSE),
+                     )
+"
+"2","is.data.frame(data)에서 다음과 같은 에러가 발생했습니다:객체 'na'를 찾을 수 없습니다
+"

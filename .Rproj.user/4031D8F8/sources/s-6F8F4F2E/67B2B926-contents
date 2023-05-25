@@ -1,0 +1,495 @@
+---
+title: "BIOST 546 HW 1 Solution"
+author: "Sungtaek Son"
+date: '2023 1 25 '
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+```
+
+\section*{Question 1}
+
+\subsection*{Part (a)}
+The following R codes load the data and run a quick summary. (Do not forget to change your working directory to where the data file is located before running these codes in the solution!) The function complete.cases checks whether each observation is a complete case. A complete case means that there is no missing value in any variable. In this case, the number of complete cases is 1,278, which is different from the total number of observations which is 1,338. Therefore, there are missing observations.
+
+```{r echo = TRUE}
+load("Medical_Cost_2.RData")
+summary(df)
+nrow(df) # Total number of observations
+sum(complete.cases(df)) # Number of complete observations
+```
+
+The number of rows with missing data (NA) can be checked by using "sum(is.na())".
+```{r echo = TRUE}
+sum(is.na(df)) # This should return 1338 - 1278.
+```
+
+\subsection*{Part (b)}
+The observations with at least one missing variable can be removed by "na.omit()" as follows.
+```{r echo = TRUE}
+df <- na.omit(df)
+```
+
+
+\subsection*{Part (c)}
+Here we use ggplot to produce the plot. You can also use graphics in base R as an alternative.
+```{r echo = TRUE}
+ggplot(df, aes(x=bmi, y=charges, color=smoker)) + geom_point()
+
+## With base R
+#plot(df$bmi[df$smoker == "yes"], df$charges[df$smoker == "yes"], col = 'blue', pch = 16,
+#     xlab = "BMI", ylab = "Charges")
+#points(df$bmi[df$smoker == "no"], df$charges[df$smoker == "no"], col = 'red', pch = 16)
+
+```
+
+
+\subsection*{Part (d)}
+
+Model 1: charges using bmi as the only predictor: 
+$$Charges = \beta_0 + \beta_1 bmi$$
+
+```{r echo = TRUE}
+mod_bmi = lm(charges~bmi,data=df)
+coef_bmi = summary(mod_bmi)$coefficients
+interpretation = c("mean charge among patients with bmi equal to 0 (not plausible, so not very meaningful)",
+"difference in mean charge associated with 1-unit difference in bmi")
+estimate = round(coef_bmi[,1],3)
+result_bmi = cbind(estimate,interpretation)
+knitr::kable(result_bmi)
+```
+
+$95\%$ Confidence interval for the coefficient of bmi is (297.011, 508.284). A simple interpretation is that, it is not surprising to see the data at hand if the true regression coefficient of bmi is in this interval. More statistically, if we repeatedly construct confidence interval for this coefficient using samples generated from the underlying distribution, $95\%$ of the time this confidence interval covers the true parameter value.
+
+```{r echo = TRUE}
+CI95 <- confint(mod_bmi)[2,]
+names(CI95) <- c("Lower 95% CI", "Upper 95% CI")
+CI95
+```
+
+```{r echo = TRUE}
+beta0 <- coef_bmi[1,1]
+beta1 <- coef_bmi[2,1]
+ggplot(df, aes(x=bmi, y=charges, color=smoker)) + geom_point() +
+geom_abline(intercept=beta0,slope=beta1)
+```
+
+The training set mean squared error is 138358366. The output from lm contains a residual standard error,
+which applies a degree-of-freedom adjustment. So directly squaring that number will lead to a different
+result, but the difference is typically small when the sample size is large.
+
+```{r echo = TRUE}
+mean(mod_bmi$residuals^2)
+```
+
+The predicted value for a smoker with bmi 29 is 938.4422 + 29 × 402.6473 = 12615.22. The predicted value for a smoker with bmi 31.5 is 938.4422 + 31.5 × 402.6473 = 13621.84.
+
+```{r echo = TRUE}
+newdata_smoker <- data.frame("bmi" = c(29, 31.5),
+                      "smoker" = c("yes", "yes"))
+fitted_smoker <- predict(mod_bmi,newdata=newdata_smoker)
+names(fitted_smoker) <- c("bmi=29","bmi=31.5")
+fitted_smoker
+```
+
+Therefore, the predicted difference between a smoker with bmi 31.5 and one with bmi 29 is 13621.84 -  12615.22 = 1006.618.
+
+```{r echo=TRUE}
+names(fitted_smoker) <- NULL
+fitted_smoker[2] - fitted_smoker[1]
+```
+
+The predicted value for a non-smoker with bmi 29 is 938.4422 + 29 × 402.6473 = 12615.22. The predicted value for a non-smoker with bmi 31.5 is 938.4422 + 31.5 × 402.6473 = 13621.84. Since the predicted values are the same as smokers, the difference in charges at two different levels of bmi are 1006.618.
+
+```{r echo = TRUE}
+newdata_nosmoker <- data.frame("bmi" = c(29, 31.5),
+                      "smoker" = c("no", "no"))
+fitted_nosmoker <- predict(mod_bmi,newdata=newdata_nosmoker)
+names(fitted_nosmoker) <- c("bmi=29","bmi=31.5")
+fitted_nosmoker
+```
+
+
+Model 2: charges using bmi and smoker as predictors: 
+$$Charges = \beta_0 + \beta_1 bmi + \beta_2 smoker$$
+
+```{r echo = TRUE}
+mod_bmismoker = lm(charges~bmi+smoker,data=df)
+coef_bmismoker = summary(mod_bmismoker)$coefficients
+interpretation = c("mean charge in the non-smoker group with bmi equal to 0 (not plausible, not meaningful)",
+"difference in mean charge between two groups with same smoke status but 1-unit difference in bmi",
+"difference in mean charge comparing smokers to non-smokers with same bmi value")
+estimate = round(coef_bmismoker[,1],3)
+result_bmismoker = cbind(estimate,interpretation)
+knitr::kable(result_bmismoker)
+```
+
+$95\%$ Confidence interval for the coefficient of bmi is (334.7816, 462.1514). The interpretation is similar to that of Model 1.
+
+```{r echo = TRUE}
+CI95 <- confint(mod_bmismoker)[2,]
+names(CI95) <- c("Lower 95% CI", "Upper 95% CI")
+CI95
+```
+
+```{r echo = TRUE}
+dfpred_bmismoker = cbind(df, pred = predict(mod_bmismoker))
+ggplot(dfpred_bmismoker, aes(x=bmi, y=charges, color=smoker))+geom_point()+
+geom_line(mapping=aes(y=pred),size=1)
+```
+
+The training set mean squared error is 50246296.
+
+```{r echo = TRUE}
+mean(mod_bmismoker$residuals^2)
+```
+
+The predicted value for a smoker with bmi 29 is -3711.6846 + 29 × 398.4665 + 23218.7734 = 31062.62.
+The predicted value for a smoker with bmi 31.5 is -3711.6846 + 31.5 × 398.4665 + 23218.7734 = 32058.78.
+
+```{r echo = TRUE}
+fitted_smoker <- predict(mod_bmismoker,newdata=newdata_smoker)
+names(fitted_smoker) <- c("bmi=29","bmi=31.5")
+fitted_smoker
+```
+
+The predicted difference between a smoker with bmi 31.5 and one with bmi 29 is 31062.62 -  32058.78 = 996.1663.
+
+```{r echo=TRUE}
+names(fitted_smoker) <- NULL
+fitted_smoker[2] - fitted_smoker[1]
+```
+
+The predicted value for a non-smoker with bmi 29 is -3711.6846 + 29 × 398.4665 = 7843.844. 
+The predicted value for a non-smoker with bmi 31.5 is -3711.6846 + 31.5 × 398.4665 = 8840.011. 
+The difference in charges at two different levels of bmi is 996.1663.
+
+```{r echo = TRUE}
+newdata_nosmoker <- data.frame("bmi" = c(29, 31.5),
+                      "smoker" = c("no", "no"))
+fitted_nosmoker <- predict(mod_bmismoker,newdata=newdata_nosmoker)
+names(fitted_nosmoker) <- c("bmi=29","bmi=31.5")
+fitted_nosmoker
+```
+
+```{r echo=TRUE}
+names(fitted_nosmoker) <- NULL
+fitted_nosmoker[2] - fitted_nosmoker[1]
+```
+
+Model 3: charges using bmi and smoker with interaction term between bmi and smoker: 
+$$Charges = \beta_0 + \beta_1 bmi + \beta_2 smoker + \beta_3 bmi \times smoker$$
+
+```{r echo = TRUE}
+mod_interact = lm(charges~bmi*smoker,data=df)
+coef_interact = summary(mod_interact)$coefficients
+interpretation = c("mean charge in the non-smoker group with bmi equal to 0 (not meaningful)",
+"difference in mean charge comparing two groups of non-smokers that differ by 1 in bmi",
+"difference in mean charge comparing smokers to non-smokers with bmi 0 (not meaningful)",
+"a difference in difference ")
+estimate = round(coef_interact[,1],1)
+result_interact = cbind(estimate,interpretation)
+knitr::kable(result_interact)
+```
+
+The coefficient of the interaction term is the difference between (a) difference in mean charge comparing two groups of smokers that differ by 1 in bmi value and (b) difference in mean charge comparing two groups of non-smokers that differ by 1 in bmi value.
+
+$95\%$ Confidence interval for the coefficient of bmi is (27.1699, 151.7778). The interpretation is similar to that of Model 1.
+
+```{r echo = TRUE}
+CI95 <- confint(mod_interact)[2,]
+names(CI95) <- c("Lower 95% CI", "Upper 95% CI")
+CI95
+```
+
+```{r echo = TRUE}
+dfpred_interact = cbind(df, pred = predict(mod_interact))
+ggplot(dfpred_interact, aes(x=bmi, y=charges, color=smoker)) + geom_point() +
+geom_line(mapping=aes(y=pred),size=1)
+```
+
+The training set mean squared error is 37522941.
+
+```{r echo = TRUE}
+mean(mod_interact$residuals^2)
+```
+
+The predicted value for a smoker with bmi 29 is 5750.9744 - 20008.38717 + 29 × 89.4738 + 29 × 1410.0539 = 29228.89.
+The predicted value for a smoker with bmi 31.5 is 5750.9744 - 20008.38717 + 31.5 × 89.4738 + 31.5 × 1410.0539 = 32977.71.
+
+```{r echo = TRUE}
+fitted_interact <- predict(mod_interact,newdata=newdata_smoker)
+names(fitted_interact) <- c("bmi=29","bmi=31.5")
+fitted_interact
+```
+
+The predicted difference between a smoker with bmi 31.5 and one with bmi 29 is 32977.71 - 29228.89 = 3748.819.
+
+```{r echo=TRUE}
+names(fitted_interact) <- NULL
+fitted_interact[2] - fitted_interact[1]
+```
+
+The predicted value for a non-smoker with bmi 29 is 5750.9744 + 29 × 89.4738 = 8345.716. 
+The predicted value for a non-smoker with bmi 31.5 is 5750.9744 + 31.5 × 89.4738 = 8569.400. 
+
+```{r echo = TRUE}
+newdata_nosmoker <- data.frame("bmi" = c(29, 31.5),
+                               "smoker" = c("no", "no"))
+fitted_nosmoker <- predict(mod_interact, newdata=newdata_nosmoker)
+names(fitted_nosmoker) <- c("bmi=29","bmi=31.5")
+fitted_nosmoker
+```
+The difference in charges at two different levels of bmi is 8569.400 - 8345.716 = 223.6846.
+```{r echo=TRUE}
+names(fitted_nosmoker) <- NULL
+fitted_nosmoker[2] - fitted_nosmoker[1]
+```
+
+
+
+\subsection*{Part (e)}
+
+Note that we do not assume that the slopes are the same. In fact, in Figure 1, the slopes of the blue and green lines look very similar but are slightly different. Thus, the three lines indeed each have their own slope and intercept, which means that two interaction terms are needed.
+
+```{r echo = TRUE}
+df$smoker_bmi30p <- df$smoker == "yes" & df$bmi > 30
+lmod <- lm(charges ~ smoker_bmi30p + bmi + smoker + bmi*smoker + bmi*smoker_bmi30p, data = df)
+coef_lmod = summary(lmod)$coefficients
+coef_lmod <- round(coef_lmod, 3)
+knitr::kable(coef_lmod)
+
+```
+For two of the predictors, namely the dummy variable (smoker==yes) and the interaction term between bmi and the dummy variable that (smoker==yes & bmi$>$30), we cannot reject the null hypothesis at level of significance of 0.05 that there is no (linear) association between that predictor and charges conditional on the other predictors in the model. 
+
+We write out the regression functions for different groups. Note that the regression we fit is
+
+$$Y = \beta_0 + \beta_1 \text{bmi} + \beta_2 \text{smoker} + \beta_3 \text{smoker bmi30p} + \beta_4 \text{smoker} \times \text{bmi} + \beta_5 \text{bmi} \times \text{smoker bmi30p}$$
+So for non-smokers, we have smoker = 0 and smoker bmi30p = 0 from which $Y = \beta_0+\beta_1 \text{bmi}$; for smokers with bmi value no larger than 30, we have smoker = 1 and smoker bmi30p = 0, so $Y = (\beta_0+\beta_2) + (\beta_1+\beta_4) \text{bmi}$; and for smokers with bmi value larger than 30, we have smoker = 1 and smoker bmi30p = 1, so $Y=(\beta_0+\beta_2+\beta_3)+(\beta_1+\beta_4+\beta_5) \text{bmi}$. Out of these coefficients, $\beta_2$ and $\beta_5$ are not statistically significant. $\beta_2$ is the difference in mean charges comparing smokers to non-smokers with a bmi value of 0. Therefore, excluding the dummy variable for smoking (forcing $\beta_2=0$) implies that the red (non-smoker) and blue (smoker and $\text{bmi} \leq 30$) lines have the same intercept. $\beta_5$ is the difference in differences. It is the difference between (a) difference in mean charge associated with 1-unit difference in bmi among smokers when bmi is larger than 30 and (b) difference in mean charge associated with 1-unit difference in bmi among smokers when bmi is no larger than 30. Excluding the interaction term between bmi and the dummy variable (smoker==yes & $\text{bmi} > 30$), which is the same as forcing $\beta_5=0$ implies that the blue (smoker and $\text{bmi} \leq 30$) and the green (smoker and $\text{bmi} > 30$) lines have the same slope.
+
+Within the new model, if a smoker were to decrease the bmi from 31.5 to 29, on average the medical charge would decrease by $39192.03 - 23216.19 = 15975.85$. If a non-smoker were to decrease the bmi from 31.5 to 29, on average the medical charge would decrease by $8569.400 - 8345.716 = 223.68$.
+
+
+```{r echo=TRUE}
+newdata_smoker <- data.frame("bmi" = c(29, 31.5), "smoker" = c("yes","yes"))
+newdata_smoker$smoker_bmi30p <- newdata_smoker$smoker == "yes" & newdata_smoker$bmi>30
+newdata_nosmoker <- data.frame("bmi" = c(29, 31.5), "smoker" = c("no","no"))
+newdata_nosmoker$smoker_bmi30p <- newdata_nosmoker$smoker == "yes" & newdata_nosmoker$bmi>30
+
+fitted_smoker <- predict(lmod, newdata=newdata_smoker)
+fitted_nosmoker <- predict(lmod, newdata=newdata_nosmoker)
+
+names(fitted_smoker) <- NULL
+names(fitted_nosmoker) <- NULL
+
+fitted_smoker
+fitted_smoker[2] - fitted_smoker[1]
+fitted_nosmoker
+fitted_nosmoker[2] - fitted_nosmoker[1]
+```
+
+
+
+\section*{Question 2}
+
+The following plots are not based on any dataset or class of models. Instead, we only try to sketch the shape of these curves.
+
+\subsection*{Part (a)} 
+The red dashed line represents the optimal model flexibility. Note that reducible error is the sum of squared bias and variance, and that expected prediction error is the sum of reducible error and irreducible error.
+```{r echo=FALSE,message=FALSE,warning=FALSE,out.width = "70%"}
+library(tidyverse)
+flex = seq(0,4,by = 0.005)
+IE = rep(0.5,length=801)
+biassq = 1 + (flex-5)^2/10
+var = 1 + flex^2/10
+MSE = biassq + var + IE
+
+names = factor(c(rep("irreducible error",801),rep("squared bias",801),rep("variance",801),rep("expected prediction error",801)))
+values = c(IE,biassq,var,MSE)
+flexibility = rep(flex,4)
+mydat = data.frame(matrix(vector(), 3204, 3,
+                dimnames=list(c(), c("flexibility","values","names"))),
+                stringsAsFactors=F)
+mydat$flexibility = flexibility
+mydat$values = values
+mydat$names = names
+p=mydat %>% ggplot( aes(x=flexibility, y=values, group=names, color=names)) +
+    geom_line(size=1) + geom_vline(xintercept=2.5, color="red",linetype="dashed") 
+p = p + theme(axis.text.x=element_blank(),axis.ticks.x = element_blank(),axis.line =      element_line(arrow=arrow(angle = 15, length = unit(.15,"inches"),type =         "closed")),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),
+axis.title.y=element_blank(),axis.text.y=element_blank(),axis.ticks.y = element_blank(),legend.title=element_blank())
+p
+```
+
+\subsection*{Part (b)}
+The red dashed line represents the optimal model flexibility.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE,out.width = "70%"}
+flex = seq(0.2,3,by = 0.005)
+testing = 0.5*flex^2 + 2/flex
+training = 1.5/flex
+
+
+names = factor(c(rep("test error",length(flex)),rep("training error",length(flex))))
+values = c(testing,training)
+flexibility = rep(flex,2)
+mydat = data.frame(matrix(vector(), length(flexibility), 3,
+                dimnames=list(c(), c("flexibility","values","names"))),
+                stringsAsFactors=F)
+mydat$flexibility = flexibility
+mydat$values = values
+mydat$names = names
+p=mydat %>% ggplot( aes(x=flexibility, y=values, group=names, color=names)) +
+    geom_line(size=1) + geom_vline(xintercept=1.26, color="red",linetype="dashed") 
+p = p + theme(axis.text.x=element_blank(),axis.ticks.x = element_blank(),axis.line =      element_line(arrow=arrow(angle = 15, length = unit(.15,"inches"),type =         "closed")),panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(),
+axis.title.y=element_blank(),axis.text.y=element_blank(),axis.ticks.y = element_blank(),legend.title=element_blank())
+p
+```
+
+
+
+\section*{Question 3}
+\subsection*{Part (a)-(c)}
+Please see the following R codes for parts (a)-(c). Note that the error term was created from the uniform distribution with range -1 to 1, hence it has mean 0 (variance = 0.333).
+```{r}
+## (a)
+set.seed(0)
+x <- rnorm(30)
+eps <- runif(30, -1, 1)
+
+## (b)
+y <- 3 + 2*x+ 3*x^3 + eps
+
+Train <- data.frame(x,y)
+
+## (c)
+m1 <- lm(y ~ x, data = Train)
+m2 <- lm(y ~ x + I(x^2), data = Train)
+m3 <- lm(y ~ x + I(x^2) + I(x^3) + I(x^4), data = Train)
+m4 <- lm(y ~ x + I(x^3), data = Train)
+```
+
+\subsection*{Part (d)}
+
+The training MSE for the model with only $X$ is $26.235$. The training MSE for the model with $X$ and $X^2$ is $13.310$. The training MSE for the model with $X$, $X^2$, $X^3$ and $X^4$ is $0.220$. The fourth model that has $X$ and $X^3$ has MSE 0.228. As we include more predictors (higher order terms in $X$), the model flexibility increases and training MSE decreases.
+
+```{r}
+MSE_train_1 <- mean((predict(m1) - Train$y)^2)
+MSE_train_2 <- mean((predict(m2) - Train$y)^2)
+MSE_train_3 <- mean((predict(m3) - Train$y)^2)
+MSE_train_4 <- mean((predict(m4) - Train$y)^2)
+
+MSE_train <- c(MSE_train_1, MSE_train_2, MSE_train_3, MSE_train_4)
+MSE_train <- round(MSE_train,3)
+Models <- c("Model 1", "Model 2", "Model 3", "Model 4")
+out_train <- data.frame("Model" = Models,"MSE" = MSE_train)
+knitr::kable(out_train)
+```
+
+\subsection*{Part (e)}
+The test MSE for the model with $X$ only (Model 1) is $49.595$. The test MSE for the model with $X$ and $X^2$ (Model 2) is $78.904$. The test MSE for the model with $X$, $X^2$, $X^3$ and $X^4$ (Model 3) is $0.472$.  The test MSE for the model with $X$ and $X^3$ (Model 4) is 0.396.
+
+As we include more predictors (higher order terms in $X$), the model flexibility increases. The test MSE could either increase or decrease based on the circumstances. Given that the flexible model contains the terms in the true data generating function, the MSE will be reduced. Note that adding the $X^2$ term to the $X$ only model increased the flexibility and the test MSE. Model 3 contains both $X$ and $X^3$ term which is in the true function, hence the additional flexibility leads to a decreased MSE.
+The model with $X$ and $X^3$ gives the smallest test MSE, which not surprising given that the true data generating mechanism involves only $X$ and $X^3$.
+
+```{r}
+x <- rnorm(10000)
+eps <- runif(10000, -1, 1)
+
+y <- 3 + 2*x + 3*x^3 + eps
+
+Test <- data.frame(x,y)
+
+pred1 <- predict(m1, newdata = Test)
+pred2 <- predict(m2, newdata = Test)
+pred3 <- predict(m3, newdata = Test)
+pred4 <- predict(m4, newdata = Test)
+
+
+MSE_test_1 <- mean((pred1 - Test$y)^2)
+MSE_test_2 <- mean((pred2 - Test$y)^2)
+MSE_test_3 <- mean((pred3 - Test$y)^2)
+MSE_test_4 <- mean((pred4 - Test$y)^2)
+
+MSE_test <- c(MSE_test_1, MSE_test_2, MSE_test_3, MSE_test_4)
+MSE_test <- round(MSE_test,3)
+Models <- c("Model 1", "Model 2", "Model 3", "Model 4")
+out_test <- data.frame("Model" = Models,"MSE" = MSE_test)
+knitr::kable(out_test)
+
+```
+
+\subsection*{Part (f)}
+Here, we compute the MSE of the true regression function $f^{\text{true}}(X) = 3 + 2X + 3X^3$ for each training and test data.
+The training MSE of the true regression function is $0.266$, and the test MSE of the true regression function is $0.330$. As we are using the true regression function to make prediction, the test and training MSEs are quite similar. These MSEs correspond to the irreducible error, which is 0.33. Note that the test MSE closely approximates the irreducible error, since it has large sample size (1,000).
+If the default "runif()" were used for the error term, the MSE for $f^{\text{true}}(X)$ would be higher than the test/training MSE. This is not surprising in that the error terms were generated from the uniform distribution with range 0 to 1. However, the lease squares fits the following conditional mean model: $E[Y|X] = 3 + 2X + 3X^3 + E[\epsilon] = 3.5 + 2X + 3X^3$. Note that the 0.5 increase in the intercept term comes from the mean of uniform distribution with range 0 to 1. Given that the simulations were performed with error generated from runif(), the irreducible error is obtained by using $f^{\text{true}}(X) = 3.5 + 2X + 3X^3$ as the true function.
+
+On the test set, the true regression function has the smallest MSE, which is not surprising. The model with $X$ and $X^3$ has a comparable test MSE. On the training set, the model with $X$, $X^2$, $X^3$ and $X^4$ has the smallest MSE, even smaller than the true regression function, but this is due to overfitting.
+
+```{r echo=TRUE, results="hide"}
+mean((Train$y - (3 + 2*Train$x + 3*Train$x^3))^2)
+mean((Test$y - (3 + 2*Test$x + 3*Test$x^3))^2)
+```
+
+\subsection*{Part (g)}
+The following R codes use a for loop. As an alternative, we can also define a function that does one simulation run and then use the R function replicate().
+
+The squared bias is $5.879$ for the model with $X$; $5.359$ for the model with $X$ and $X^2$; $<0.001$ for the model with $X$, $X^2$, $X^3$ and $X^4$; $<0.001$ for the model with $X$ and $X^3$. The variance is $2.569$ for the model with $X$; $3.270$ for the model with $X$ and $X^2$; $0.032$ for the model with $X$, $X^2$, $X^3$ and $X^4$; $0.022$ for the model with $X$ and $X^3$.
+The resulting MSE is $8.449$ for the model with $X$; $8.629$ for the model with $X$ and $X^2$; $0.032$ for the model with $X$, $X^2$, $X^3$ and $X^4$; $0.022$ for the model with $X$ and $X^3$.
+
+The sum of squared bias and variance decreases as we go from Model 1 to Model 3 and Model 4. This agrees with the trend of test MSE we observed earlier. The bias decreases as the model is closer to $f^{\text{true}}$, and the bias is essentially 0 for the two models that include $X$ and $X^3$. 
+
+```{r echo=TRUE}
+pred1g <- c()
+pred2g <- c()
+pred3g <- c()
+pred4g <- c()
+
+for(j in 1:40){
+   x = rnorm(30)
+   eps = runif(30,-1,1)
+   y =  3 + 2*x + 3*x^3 + eps
+
+   dat = data.frame(x,y)
+
+   m1g <- lm(y ~ x, data = dat)
+   m2g <- lm(y ~ x + I(x^2), data = dat)
+   m3g <- lm(y ~ x + I(x^2) + I(x^3) + I(x^4), data = dat)
+   m4g <- lm(y ~ x + I(x^3), data = dat)
+
+   newdata <- data.frame(x = 0.3)
+   pred1g[j] = predict(m1g,newdata=newdata)
+   pred2g[j] = predict(m2g,newdata=newdata)
+   pred3g[j] = predict(m3g,newdata=newdata)
+   pred4g[j] = predict(m4g,newdata=newdata)
+}
+
+ftrue_x0 <- 3 + 2 * 0.3 + 3 * 0.3^3
+
+Bias_sqr1 <- (mean(pred1g) - ftrue_x0)^2
+Bias_sqr2 <- (mean(pred2g) - ftrue_x0)^2
+Bias_sqr3 <- (mean(pred3g) - ftrue_x0)^2
+Bias_sqr4 <- (mean(pred4g) - ftrue_x0)^2
+
+Variance1 <- var(pred1g)
+Variance2 <- var(pred2g)
+Variance3 <- var(pred3g)
+Variance4 <- var(pred4g)
+
+MSE1 <- (mean(pred1g) - ftrue_x0)^2 + var(pred1g)
+MSE2 <- (mean(pred2g) - ftrue_x0)^2 + var(pred2g)
+MSE3 <- (mean(pred3g) - ftrue_x0)^2 + var(pred3g)
+MSE4 <- (mean(pred4g) - ftrue_x0)^2 + var(pred4g)
+
+out <- data.frame("Model" = Models, 
+                  "Squared bias" = c(Bias_sqr1,Bias_sqr2,Bias_sqr3,Bias_sqr4),
+                  "Variance" = c(Variance1,Variance2,Variance3,Variance4),
+                  "MSE" = c(MSE1,MSE2, MSE3, MSE4))
+out[,-1] <- round(out[,-1],3)
+
+knitr::kable(out)
+```
+

@@ -1,0 +1,5 @@
+"0","anova(lme_intercept, lme_int_slope, lme_int_slope_quadratic)
+"
+"2","anova.lme(lme_intercept, lme_int_slope, lme_int_slope_quadratic)에서 다음과 같은 에러가 발생했습니다:
+  객체 'lme_int_slope'를 찾을 수 없습니다
+"
